@@ -116,17 +116,12 @@ def get_affected_packages(args):
     """
     recipes_dir = args.recipes_dir
     hours = args.diff_hours
-    cmd = """cd '%s' && git log --diff-filter=ACMRTUXB --name-only --pretty="" --since="%s hours ago" | grep -E '^recipes/.*/meta.yaml' | sort | uniq""" % (recipes_dir, hours)
-    pkg_list = check_output(cmd, shell=True)
-    ret = list()
-    for pkg in pkg_list.strip().split('\n'):
-        if pkg and os.path.exists(os.path.join( recipes_dir, pkg )):
-            ret.append( (get_pkg_name(args, pkg), get_tests(args, pkg)) )
-    return ret
-
-
-def check_output(cmd, shell=True):
-    return subprocess.check_output(cmd, shell=shell)
+    cmd = ['git', 'log', '--diff-filter=ACMRTUXB', '--name-only', '--pretty=""', '--since="%s hours ago"' % hours]
+    changed_files = subprocess.check_output(cmd, cwd=recipes_dir).strip().split('\n')
+    pkg_list = set([x for x in changed_files if x.startswith('recipes/') and x.endswith('meta.yaml')])
+    for pkg in pkg_list:
+        if pkg and os.path.exists(os.path.join(recipes_dir, pkg)):
+            yield (get_pkg_name(args, pkg), get_tests(args, pkg))
 
 
 def conda_versions(pkg_name, file_name):
@@ -216,7 +211,7 @@ def mull_targets(
         involucro_args.extend(["-set", "SINGULARITY='1'"])
         involucro_args.extend(["-set", "SINGULARITY_IMAGE_NAME='%s'" % singularity_image_name])
         involucro_args.extend(["-set", "SINGULARITY_IMAGE_DIR='%s'" % singularity_image_dir])
-        involucro_args.extend(["-set", "USER_ID='%s:%s'" % (os.getuid(), os.getgid() )])
+        involucro_args.extend(["-set", "USER_ID='%s:%s'" % (os.getuid(), os.getgid())])
     if conda_version is not None:
         verbose = "--verbose" if verbose else "--quiet"
         involucro_args.extend(["-set", "PREINSTALL='conda install %s --yes conda=%s'" % (verbose, conda_version)])
